@@ -20,13 +20,24 @@ class FileAttachment(BaseModel):
     mime_type: str 
     base64_data: str
 
+class ResponsibleUser(BaseModel):
+    id: str
+    name: str
+    email: str
+    user_name: str
+    role: str
+
 class AnalysisRequest(BaseModel):
     report_id: int
     title: str
     description: str
     files: Optional[List[FileAttachment]] = []
+    responsible_users: Optional[List[ResponsibleUser]] = []
 
 class AnalysisResponse(BaseModel):
     report_id: int
     category: ReportCategory
     risk_level: ReportRisk
+    conflict_detected: bool = False
+    conflicted_user_ids: List[str] = []
+    manager_conflict: bool = False
