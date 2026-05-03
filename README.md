@@ -25,7 +25,12 @@ PROJECT_NAME="Égide.IA MS"
 API_V1_STR="/api/v1"
 ENVIRONMENT="development"
 
-GOOGLE_API_KEY="secret_key"
+LLM_PROVIDER=groq # flag com a llm usada
+GROQ_API_KEY="chave-secreta"
+GROQ_MODEL="openai/gpt-oss-120b"
+GOOGLE_API_KEY=""
+GOOGLE_MODEL=""
+
 ```
 
 Para rodar:
