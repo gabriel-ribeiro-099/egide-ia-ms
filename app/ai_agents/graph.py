@@ -1,4 +1,5 @@
 from langgraph.graph import StateGraph, END
+from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 from typing import List
@@ -7,11 +8,27 @@ from app.core.config import settings
 from app.ai_agents.state import AnonymizationState
 from app.ai_agents.prompts import EXTRACTOR_SYSTEM_PROMPT, REDACTOR_SYSTEM_PROMPT, REVIEWER_SYSTEM_PROMPT
 
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash", 
-    google_api_key=settings.GOOGLE_API_KEY,
-    temperature=0.1 
-)
+def get_llm():
+    provider = (settings.LLM_PROVIDER or "groq").strip().lower()
+    if provider == "google":
+        if not settings.GOOGLE_API_KEY:
+            raise RuntimeError("GOOGLE_API_KEY não configurada")
+        return ChatGoogleGenerativeAI(
+            model=settings.GOOGLE_MODEL,
+            google_api_key=settings.GOOGLE_API_KEY,
+            temperature=0.1
+        )
+
+    if not settings.GROQ_API_KEY:
+        raise RuntimeError("GROQ_API_KEY não configurada")
+    return ChatGroq(
+        model=settings.GROQ_MODEL,
+        groq_api_key=settings.GROQ_API_KEY,
+        temperature=0.1
+    )
+
+
+llm = get_llm()
 
 class Entidade(BaseModel):
     tipo: str = Field(description="Tipo do dado (NOME, CPF, CARGO, LOCAL, etc)")

@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 from typing import List
+from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 from app.core.config import settings
@@ -22,22 +23,50 @@ class ConflictOutput(BaseModel):
 
 class AnalysisService:
     def __init__(self):
-        self.llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
-            google_api_key=settings.GOOGLE_API_KEY,
-            temperature=0.1
-        )
+        self.provider = (settings.LLM_PROVIDER or "groq").strip().lower()
+        if self.provider == "google":
+            if not settings.GOOGLE_API_KEY:
+                raise RuntimeError("GOOGLE_API_KEY não configurada")
+            self.llm = ChatGoogleGenerativeAI(
+                model=settings.GOOGLE_MODEL,
+                google_api_key=settings.GOOGLE_API_KEY,
+                temperature=0.1
+            )
+        else:
+            if not settings.GROQ_API_KEY:
+                raise RuntimeError("GROQ_API_KEY não configurada")
+            self.llm = ChatGroq(
+                model=settings.GROQ_MODEL,
+                groq_api_key=settings.GROQ_API_KEY,
+                temperature=0.1
+            )
         
     def _montar_mensagem_multimodal(self, payload: AnalysisRequest, system_prompt: str) -> list:
-        conteudo = [{"type": "text", "text": f"{system_prompt}\n\nTÍTULO: {payload.title}\nDESCRIÇÃO: {payload.description}"}]
-        
-        for f in payload.files:
-            conteudo.append({
-                "type": "image_url",
-                "image_url": {"url": f"data:{f.mime_type};base64,{f.base64_data}"}
-            })
-            
-        return [HumanMessage(content=conteudo)]
+        anexos = payload.files or []
+        if self.provider == "google":
+            conteudo = [
+                {
+                    "type": "text",
+                    "text": f"{system_prompt}\n\nTÍTULO: {payload.title}\nDESCRIÇÃO: {payload.description}"
+                }
+            ]
+
+            for f in anexos:
+                conteudo.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{f.mime_type};base64,{f.base64_data}"}
+                })
+
+            return [HumanMessage(content=conteudo)]
+
+        anexos_info = f"ANEXOS: {len(anexos)} arquivo(s) anexado(s)." if anexos else "ANEXOS: nenhum."
+        prompt_texto = (
+            f"{system_prompt}\n\n"
+            f"TÍTULO: {payload.title}\n"
+            f"DESCRIÇÃO: {payload.description}\n"
+            f"{anexos_info}"
+        )
+        return [HumanMessage(content=prompt_texto)]
 
     async def _analisar_categoria(self, mensagens: list) -> CategoryOutput:
         llm_cat = self.llm.with_structured_output(CategoryOutput)
